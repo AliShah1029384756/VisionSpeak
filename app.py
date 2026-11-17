@@ -2,7 +2,7 @@ import time
 import cv2
 import streamlit as st
 from detector import ObjectDetector
-from voice import announce
+from voice import announce, get_voice_status, test_voice
 
 st.set_page_config(page_title="VisionSpeak", page_icon="👁️", layout="wide")
 
@@ -15,11 +15,18 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("👁️ VisionSpeak")
-st.caption("Real-time object detection with an offline English voice assistant")
+st.caption("Real-time object detection with automatic English / Urdu voice announcements")
 
 @st.cache_resource
 def load_detector():
     return ObjectDetector()
+
+URDU_NAMES = {
+    "Person": "انسان", "Mobile phone": "موبائل فون", "Laptop": "لیپ ٹاپ",
+    "Bottle": "بوتل", "Glass": "گلاس", "Book": "کتاب", "Chair": "کرسی",
+    "Table": "میز", "Keyboard": "کی بورڈ", "Mouse": "ماؤس", "Clock": "گھڑی",
+    "Scissors": "قینچی", "Remote": "ریموٹ"
+}
 
 if "camera" not in st.session_state:
     st.session_state.camera = None
@@ -27,12 +34,25 @@ if "running" not in st.session_state:
     st.session_state.running = False
 if "voice_enabled" not in st.session_state:
     st.session_state.voice_enabled = True
+if "voice_language" not in st.session_state:
+    st.session_state.voice_language = "English"
 if "last_seen" not in st.session_state:
     st.session_state.last_seen = {}
 
 with st.sidebar:
     st.header("Controls")
-    st.session_state.voice_enabled = st.toggle("English voice announcements", value=st.session_state.voice_enabled)
+    st.session_state.voice_enabled = st.toggle("Automatic voice announcements", value=st.session_state.voice_enabled)
+    st.session_state.voice_language = st.selectbox("Voice language", ["English", "Urdu"], index=0 if st.session_state.voice_language == "English" else 1)
+    if st.button("🔊 Test voice", use_container_width=True):
+        test_voice(st.session_state.voice_language)
+        st.info("Voice test queued. If you hear nothing, check the voice status below.")
+    voice_status = get_voice_status()
+    if voice_status["error"]:
+        st.error("Voice issue: " + voice_status["error"])
+    elif voice_status["voice_name"]:
+        st.success("Voice ready: " + voice_status["voice_name"])
+    else:
+        st.caption("Voice status: waiting for first speech")
     confidence = st.slider("Detection confidence", 0.10, 0.90, 0.45, 0.05)
     st.markdown("---")
     st.markdown("**Camera:** Laptop webcam (index 0)")
@@ -86,7 +106,8 @@ def live_view():
         names_now.append(label)
         previous = st.session_state.last_seen.get(label, 0)
         if st.session_state.voice_enabled and now - previous >= 4.0:
-            announce(label)
+            spoken_name = URDU_NAMES.get(label, label) if st.session_state.voice_language == "Urdu" else label
+            announce(spoken_name + (" detect ho gaya" if st.session_state.voice_language == "Urdu" else " detected"), st.session_state.voice_language)
             st.session_state.last_seen[label] = now
 
     unique_names = sorted(set(names_now))
@@ -99,4 +120,4 @@ live_view()
 
 st.markdown("---")
 st.markdown("**Objects supported:** Person, mobile phone, laptop, bottle, glass (wine-glass class), book, chair, table (dining-table class), keyboard, mouse, clock, scissors and remote.")
-st.caption("VisionSpeak is a school exhibition demonstration. Detection is approximate and depends on lighting, camera quality and object angle.")
+st.caption("VisionSpeak is a school exhibition demonstration. Detection is approximate and depends on lighting, camera quality and object angle. Urdu speech requires an Urdu text-to-speech voice installed in Windows.")
