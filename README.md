@@ -1,13 +1,15 @@
 # VisionSpeak 👁️
 
-**Real-Time AI Object Detection with Offline English Voice Announcements**
+**Real-Time AI Object Detection with Offline English / Urdu Voice Announcements**
 
 VisionSpeak uses a laptop webcam and a pretrained YOLO11n model to recognize selected everyday objects, draw detection boxes, display object names, and speak short English announcements.
 
 ## Features
 - Live laptop webcam detection
 - Object names and bounding boxes
-- Offline English speech using Windows text-to-speech
+- Automatic offline English / Urdu speech using Windows text-to-speech
+- Voice test button and visible voice error messages
+- Urdu object-name translations (requires an Urdu Windows speech voice)
 - Adjustable confidence threshold
 - CPU mode; no NVIDIA GPU required
 - Runs locally on Windows 10
@@ -36,7 +38,7 @@ Double-click `setup.bat`. It creates a virtual environment, installs the package
 Complete this setup before exhibition day while internet is available.
 
 ### 4. Run
-Double-click `run.bat`. The local dashboard opens in your browser. Press **Start camera**.
+Double-click `run.bat`. The local dashboard opens in your browser. Choose **English** or **Urdu** in the sidebar, use **Test voice** to check speech, then press **Start camera**. Detected object names are announced automatically.
 
 After setup and model download, the application works without internet.
 
@@ -49,7 +51,7 @@ After setup and model download, the application works without internet.
 
 ## Troubleshooting
 - **Camera not opening:** Close Zoom/Teams/Camera app and restart VisionSpeak. Check Windows camera permissions.
-- **No speech:** Check speaker volume and Windows speech settings. Visual detection works independently.
+- **No speech:** Use **Test voice** and read the voice status in the sidebar. Check speaker volume and Windows speech settings. For Urdu, install an Urdu speech voice under Windows Settings → Time & language → Speech. English voice works independently.
 - **Slow detection:** Close heavy apps and reduce camera resolution if needed.
 - **Model missing:** Connect to the internet and run `setup.bat` again.
 
