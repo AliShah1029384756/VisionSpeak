@@ -41,8 +41,15 @@ if "last_seen" not in st.session_state:
 
 with st.sidebar:
     st.header("Controls")
-    st.session_state.voice_enabled = st.toggle("Automatic voice announcements", value=st.session_state.voice_enabled)
-    st.session_state.voice_language = st.selectbox("Voice language", ["English", "Urdu"], index=0 if st.session_state.voice_language == "English" else 1)
+    st.session_state.voice_enabled = st.toggle(
+        "Automatic voice announcements",
+        value=st.session_state.voice_enabled
+    )
+    st.session_state.voice_language = st.selectbox(
+        "Voice language",
+        ["English", "Urdu"],
+        index=0 if st.session_state.voice_language == "English" else 1
+    )
     if st.button("🔊 Test voice", use_container_width=True):
         test_voice(st.session_state.voice_language)
         st.info("Voice test queued. If you hear nothing, check the voice status below.")
@@ -62,7 +69,10 @@ with st.sidebar:
 
 col_a, col_b = st.columns([1, 1])
 with col_a:
-    if st.button("▶ Start camera", type="primary", use_container_width=True, disabled=st.session_state.running):
+    if st.button(
+        "▶ Start camera", type="primary",
+        use_container_width=True, disabled=st.session_state.running
+    ):
         camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         if not camera.isOpened():
             camera.release()
@@ -72,13 +82,18 @@ with col_a:
             camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 540)
             st.session_state.camera = camera
             st.session_state.running = True
+            st.session_state.last_seen = {}
             st.rerun()
 with col_b:
-    if st.button("■ Stop camera", use_container_width=True, disabled=not st.session_state.running):
+    if st.button(
+        "■ Stop camera", use_container_width=True,
+        disabled=not st.session_state.running
+    ):
         st.session_state.running = False
         if st.session_state.camera is not None:
             st.session_state.camera.release()
             st.session_state.camera = None
+        st.session_state.last_seen = {}
         st.rerun()
 
 video_area = st.empty()
@@ -97,27 +112,52 @@ def live_view():
         return
 
     annotated, detections = detector.detect(frame, confidence)
-    video_area.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), channels="RGB", use_container_width=True)
+    video_area.image(
+        cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB),
+        channels="RGB",
+        use_container_width=True
+    )
 
     now = time.time()
-    names_now = []
-    for item in detections:
-        label = item["label"]
-        names_now.append(label)
-        previous = st.session_state.last_seen.get(label, 0)
-        if st.session_state.voice_enabled and now - previous >= 4.0:
-            spoken_name = URDU_NAMES.get(label, label) if st.session_state.voice_language == "Urdu" else label
-            announce(spoken_name + (" detect ho gaya" if st.session_state.voice_language == "Urdu" else " detected"), st.session_state.voice_language)
-            st.session_state.last_seen[label] = now
+    names_now = sorted({item["label"] for item in detections})
 
-    unique_names = sorted(set(names_now))
-    if unique_names:
-        status_area.success("Detected: " + " · ".join(unique_names))
+    # Speak once when a class first appears. If it disappears for 1.5 seconds
+    # and comes back, announce it again. This avoids repeating speech every frame.
+    for label in names_now:
+        previous = st.session_state.last_seen.get(label, 0)
+        if st.session_state.voice_enabled and now - previous > 1.5:
+            if st.session_state.voice_language == "Urdu":
+                spoken_name = URDU_NAMES.get(label, label)
+                phrase = f"یہ {spoken_name} ہے۔"
+            else:
+                phrase = f"This is a {label.lower()}."
+            announce(phrase, st.session_state.voice_language)
+        st.session_state.last_seen[label] = now
+
+    # Forget objects that have been out of view for a while.
+    st.session_state.last_seen = {
+        label: seen_at
+        for label, seen_at in st.session_state.last_seen.items()
+        if now - seen_at <= 10.0
+    }
+
+    if names_now:
+        status_area.success("Detected: " + " · ".join(names_now))
     else:
         status_area.info("Looking for objects…")
 
 live_view()
 
 st.markdown("---")
-st.markdown("**Objects supported:** Person, mobile phone, laptop, bottle, glass (wine-glass class), book, chair, table (dining-table class), keyboard, mouse, clock, scissors and remote.")
-st.caption("VisionSpeak is a school exhibition demonstration. Detection is approximate and depends on lighting, camera quality and object angle. Urdu speech requires an Urdu text-to-speech voice installed in Windows.")
+st.markdown(
+    "**Objects supported:** Person, mobile phone, laptop, bottle, glass "
+    "(wine-glass class), book, chair, table (dining-table class), keyboard, "
+    "mouse, clock, scissors and remote."
+)
+st.caption(
+    "Automatic speech announces an object when it enters the camera view, "
+    "and announces it again if it leaves and later returns. Pencil is not "
+    "included in the current model's supported classes. Detection depends on "
+    "lighting, camera quality and object angle. Urdu speech requires an Urdu "
+    "text-to-speech voice installed in Windows."
+)
